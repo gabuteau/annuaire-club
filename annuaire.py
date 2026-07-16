@@ -12,10 +12,10 @@ st.set_page_config(page_title="Annuaire - Club des Entreprises", page_icon="🏢
 
 st.title("📝 Annuaire des Entreprises")
 st.subheader("Club des Entreprises de la Vallée de l'Isle")
-st.markdown("Renseignez vos informations, visualisez l'aperçu, puis validez pour transmettre votre fiche.")
+st.markdown("Renseignez vos informations, déposez vos visuels, puis validez pour transmettre votre fiche.")
 
 # --- FONCTION DE GÉNÉRATION WORD ---
-def generate_word_doc(data, logo_file, portrait_file, illustr_files):
+def generate_word_doc(data, logo_files, portrait_file, illustr_files):
     doc = docx.Document()
     for section in doc.sections:
         section.top_margin = Inches(0.8)
@@ -65,18 +65,39 @@ def generate_word_doc(data, logo_file, portrait_file, illustr_files):
             val_run.font.italic = True
             val_run.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
 
+    # SECTION VISUELS
     add_section_header("ÉLÉMENTS VISUELS")
-    if logo_file is not None:
-        doc.add_paragraph().add_run("• Logo : Fourni (intégré au document)")
-        doc.add_picture(logo_file, width=Inches(2.0))
-    if portrait_file is not None:
-        doc.add_paragraph().add_run("• Photo Dirigeant : Fournie (intégrée au document)")
-        doc.add_picture(portrait_file, width=Inches(1.8))
-    if illustr_files:
-        doc.add_paragraph().add_run(f"• Visuels d'illustration : {len(illustr_files)} fourni(s)")
-        for img in illustr_files:
-            doc.add_picture(img, width=Inches(2.5))
+    
+    # Gestion de plusieurs logos
+    if logo_files:
+        doc.add_paragraph().add_run(f"• Logo(s) de l'entreprise ({len(logo_files)}) :").font.bold = True
+        for logo in logo_files:
+            doc.add_picture(logo, width=Inches(2.2))
+            doc.add_paragraph().paragraph_format.space_after = Pt(4)
+    else:
+        add_field("Logo de l'entreprise", "Non fourni")
 
+    # Gestion de la photo portrait
+    if portrait_file is not None:
+        p_port = doc.add_paragraph()
+        p_port.paragraph_format.space_before = Pt(8)
+        p_port.add_run("• Photo du dirigeant :").font.bold = True
+        doc.add_picture(portrait_file, width=Inches(1.8))
+    else:
+        add_field("Photo du dirigeant", "Non fournie")
+
+    # Gestion de plusieurs illustrations
+    if illustr_files:
+        p_ill = doc.add_paragraph()
+        p_ill.paragraph_format.space_before = Pt(8)
+        p_ill.add_run(f"• Visuels d'illustration ({len(illustr_files)}) :").font.bold = True
+        for img in illustr_files:
+            doc.add_picture(img, width=Inches(2.8))
+            doc.add_paragraph().paragraph_format.space_after = Pt(4)
+    else:
+        add_field("Visuels d'illustration", "Aucun visuel fourni")
+
+    # SECTIONS TEXTES
     add_section_header("1. CATÉGORIE DE L'ENTREPRISE")
     add_field("Secteur d'activité principal", data["categorie"])
 
@@ -110,12 +131,11 @@ def generate_word_doc(data, logo_file, portrait_file, illustr_files):
 
 # --- INTERFACE DE SAISIE ---
 st.markdown("### 📸 1. Vos fichiers visuels")
-col_l, col_p = st.columns(2)
-with col_l:
-    logo_file = st.file_uploader("Logo de l'entreprise (PNG, JPG)", type=["png", "jpg", "jpeg"])
-with col_p:
-    portrait_file = st.file_uploader("Photo portrait du dirigeant", type=["png", "jpg", "jpeg"])
-illustr_files = st.file_uploader("1 à 2 visuels d'illustration", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
+
+# Changement ici : "accept_multiple_files=True" est désormais actif pour le logo et les illustrations
+logo_files = st.file_uploader("Logo(s) de l'entreprise (Déposez un ou plusieurs fichiers PNG, JPG)", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
+portrait_file = st.file_uploader("Photo portrait du dirigeant (Un seul fichier)", type=["png", "jpg", "jpeg"])
+illustr_files = st.file_uploader("Visuels d'illustration (Locaux, équipe, produits... Déposez autant de fichiers que souhaité)", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
 
 st.markdown("---")
 st.markdown("### 📝 2. Vos informations")
@@ -155,12 +175,19 @@ st.markdown("---")
 if data["raison_sociale"]:
     st.markdown("### 👀 3. Aperçu avant validation")
     
-    # Affichage d'un faux document papier pour vérification visuelle immédiate
     with st.container():
         st.info("Voici les informations telles qu'elles apparaîtront dans l'annuaire :")
+        
+        # Petit récapitulatif textuel des visuels ajoutés dans l'aperçu web
+        nb_logos = len(logo_files) if logo_files else 0
+        nb_ills = len(illustr_files) if illustr_files else 0
+        has_port = "Oui" if portrait_file else "Non"
+        
         st.markdown(f"""
-        **🏢 {data['raison_sociale'].upper()}**  
+        **📁 {data['raison_sociale'].upper()}**  
         *Secteur :* {data['categorie'] if data['categorie'] else 'Non renseigné'}  
+        
+        **🖼️ Statut des fichiers :** {nb_logos} logo(s) chargé(s) — Photo dirigeant : {has_port} — {nb_ills} image(s) d'illustration  
         
         **👤 Dirigeant :** {data['dirigeant']} ({data['fonction']})  
         *Site Web :* {data['site_web'] if data['site_web'] else 'Non renseigné'}  
@@ -181,8 +208,7 @@ if data["raison_sociale"]:
 
     st.markdown("### 🚀 4. Validation & Transmission")
     
-    # Bouton de téléchargement local de secours
-    docx_file = generate_word_doc(data, logo_file, portrait_file, illustr_files)
+    docx_file = generate_word_doc(data, logo_files, portrait_file, illustr_files)
     st.download_button(
         label="📥 1. Télécharger mon fichier Word (.docx)",
         data=docx_file,
@@ -190,16 +216,13 @@ if data["raison_sociale"]:
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
-    # Préparation du lien Email Mailto automatique
     sujet = f"Annuaire Club Entreprises - {data['raison_sociale']}"
     corps = f"Bonjour Jérôme,\n\nVoici les informations saisies pour l'annuaire du Club :\n\n" \
             f"Raison sociale : {data['raison_sociale']}\n" \
             f"Dirigeant : {data['dirigeant']} ({data['fonction']})\n" \
             f"Secteur : {data['categorie']}\n" \
-            f"Descriptif : {data['descriptif']}\n" \
-            f"Téléphone : {data['telephone']}\n" \
-            f"Email : {data['email']}\n\n" \
-            f"Pensez à glisser le fichier Word téléchargé ainsi que vos images en pièces jointes à cet e-mail."
+            f"Fichiers : {nb_logos} logo(s) et {nb_ills} illustration(s) intégrés au Word.\n\n" \
+            f"Pensez à glisser le fichier Word téléchargé ainsi que vos images originales en pièces jointes à cet e-mail."
     
     mail_link = f"mailto:j.gabuteau@invelac.fr?subject={urllib.parse.quote(sujet)}&body={urllib.parse.quote(corps)}"
     
