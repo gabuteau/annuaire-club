@@ -11,10 +11,10 @@ st.set_page_config(page_title="Annuaire - Club des Entreprises", page_icon="🏢
 
 st.title("📝 Annuaire des Entreprises")
 st.subheader("Club des Entreprises de la Vallée de l'Isle")
-st.markdown("Veuillez renseigner les informations ci-dessous pour générer votre fiche annuaire au format Word.")
+st.markdown("Renseignez vos informations et déposez vos visuels pour générer votre fiche annuaire illustrée au format Word.")
 
-# --- FONCTION DE GÉNÉRATION WORD ---
-def generate_word_doc(data):
+# --- FONCTION DE GÉNÉRATION WORD AVEC IMAGES ---
+def generate_word_doc(data, logo_file, portrait_file, illustr_files):
     doc = docx.Document()
     for section in doc.sections:
         section.top_margin = Inches(0.8)
@@ -64,11 +64,39 @@ def generate_word_doc(data):
             val_run.font.italic = True
             val_run.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
 
-    add_section_header("ÉLÉMENTS VISUELS À JOINDRE")
-    add_field("Logo de l'entreprise", "À joindre séparément (PNG HD ou Vectoriel)")
-    add_field("Photo du dirigeant", "Portrait HD du dirigeant à joindre")
-    add_field("Visuels d'illustration", "1 à 2 visuels (locaux, produits, équipe)")
+    # SECTION VISUELS INTÉGRÉS
+    add_section_header("ÉLÉMENTS VISUELS")
+    
+    # Intégration du Logo
+    if logo_file is not None:
+        p_logo = doc.add_paragraph()
+        p_logo.add_run("• Logo de l'entreprise :").font.bold = True
+        doc.add_picture(logo_file, width=Inches(2.5))
+    else:
+        add_field("Logo de l'entreprise", "Non fourni")
 
+    # Intégration de la Photo Portrait
+    if portrait_file is not None:
+        p_port = doc.add_paragraph()
+        p_port.paragraph_format.space_before = Pt(8)
+        p_port.add_run("• Photo du dirigeant :").font.bold = True
+        doc.add_picture(portrait_file, width=Inches(2.0))
+    else:
+        add_field("Photo du dirigeant", "Non fournie")
+
+    # Intégration des Illustrations
+    if illustr_files:
+        p_ill = doc.add_paragraph()
+        p_ill.paragraph_format.space_before = Pt(8)
+        p_ill.add_run("• Visuels d'illustration (locaux, produits, équipe) :").font.bold = True
+        for img in illustr_files:
+            doc.add_picture(img, width=Inches(3.0))
+            # Ajout d'un petit espace entre les images
+            doc.add_paragraph().paragraph_format.space_after = Pt(4)
+    else:
+        add_field("Visuels d'illustration", "Aucun visuel fourni")
+
+    # SECTIONS TEXTES
     add_section_header("1. CATÉGORIE DE L'ENTREPRISE")
     add_field("Secteur d'activité principal", data["categorie"])
 
@@ -103,6 +131,20 @@ def generate_word_doc(data):
     return bio
 
 # --- INTERFACE DE SAISIE WEB ---
+
+# Étape d'importation des fichiers en premier
+st.markdown("### 📸 1. Vos fichiers visuels")
+col_l, col_p = st.columns(2)
+with col_l:
+    logo_file = st.file_uploader("Logo de l'entreprise (PNG, JPG)", type=["png", "jpg", "jpeg"])
+with col_p:
+    portrait_file = st.file_uploader("Photo portrait du dirigeant", type=["png", "jpg", "jpeg"])
+
+illustr_files = st.file_uploader("1 à 2 visuels d'illustration (locaux, équipe, produits...)", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
+
+st.markdown("---")
+st.markdown("### 📝 2. Vos informations textuelles")
+
 data = {}
 data["categorie"] = st.text_input("Secteur d'activité principal (ex: Peinture, Mécanique, Conseil...)")
 
@@ -140,12 +182,12 @@ st.markdown("---")
 
 # Génération et bouton de téléchargement
 if data["raison_sociale"]:
-    docx_file = generate_word_doc(data)
+    docx_file = generate_word_doc(data, logo_file, portrait_file, illustr_files)
     st.download_button(
-        label="📥 Télécharger la fiche Word (.docx)",
+        label="📥 Télécharger la fiche Word illustrée (.docx)",
         data=docx_file,
         file_name=f"Fiche_Annuaire_{data['raison_sociale'].replace(' ', '_')}.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 else:
-    st.info("Veuillez renseigner au moins le nom de l'entreprise pour pouvoir télécharger le document.")
+    st.info("Veuillez renseigner au nom de l'entreprise pour pouvoir télécharger le document.")
